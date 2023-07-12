@@ -1,4 +1,4 @@
-TICKERS = ['JNJ', 'KO', 'T']
+TICKERS = ['AMZN', 'WMT', 'XOM', 'BRK-B', 'UNH', 'UPS', 'AAPL', 'LIN', 'PLD', 'GOOG', 'NEE']
 FILEPATH = 'preprocessed.csv'
 EPISODE_LENGTH = 252*5*3 #5 years. Multiply 3 for indexing each stocks
 OBS_COL = ['JNJ_rsi',
