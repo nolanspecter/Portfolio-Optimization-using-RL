@@ -1,5 +1,19 @@
 import pandas as pd
 import numpy as np
+import ta
+
+def get_ta(df):
+    df['sma'] = ta.trend.sma_indicator(df['close'], window=9)
+    df['ema'] = ta.trend.ema_indicator(df['close'], window=9)
+    df['rsi'] = ta.momentum.rsi(df['close'])
+    df['macd'] = ta.trend.macd_diff(df['close'])
+    df['obv'] = ta.volume.on_balance_volume(df['close'], df['volume'])
+    df['cci'] = ta.trend.cci(df['high'], df['low'], df['close'])
+    df['adx'] = ta.trend.adx(df['high'], df['low'], df['close'])
+    df['atr'] = ta.volatility.average_true_range(df['high'], df['low'], df['close'])
+    df.dropna(inplace=True)
+
+    return df
 
 def preprocessing(df):
     ta_df = pd.DataFrame()
