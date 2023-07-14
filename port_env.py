@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from stable_baselines3.common.vec_env import DummyVecEnv
+import math
 
 import conf
 
@@ -73,14 +74,14 @@ class StockPortfolioEnv(gym.Env):
                 tech_indicator_list,
                 initial_weights,
                 turbulence_threshold=None,
-                lookback=252,
+                lookback=conf.EPISODE_LENGTH,
                 day = 0):
 
         self.day = day
         self.lookback=lookback
         self.raw_df = raw_df
-        start_point = (np.random.choice(np.arange(11,self.raw_df.index.max() - 252*5))//11)
-        end_point = start_point + 252*5 -1
+        start_point = (np.random.choice(np.arange(0,self.raw_df.index.max() - conf.EPISODE_LENGTH)))
+        end_point = start_point + conf.EPISODE_LENGTH
         self.df = self.raw_df.loc[start_point:end_point,:].reset_index(drop=True)
         self.df.index = self.df.date.factorize()[0]
         self.stock_dim = stock_dim
@@ -117,7 +118,7 @@ class StockPortfolioEnv(gym.Env):
              
     def step(self, actions):
         # print(self.day)
-        self.terminal = self.day >= 252*5 -1
+        self.terminal = (self.day >= 252*5 -1)
         # print(actions)
 
         if self.terminal:
@@ -156,7 +157,12 @@ class StockPortfolioEnv(gym.Env):
             
       
             #  norm_actions = actions
-            weights = self.softmax_normalization(actions) 
+            if sum(actions) <= 1e-3:
+                weights = [1/len(conf.TICKERS) for a in actions]
+            else:
+                weights = [a / sum(actions) for a in actions]
+            if self.day % 100 == 0:
+                print(weights)
             #print("Normalized actions: ", weights)
             self.actions_memory.append(weights)
             last_day_memory = self.data
@@ -164,9 +170,9 @@ class StockPortfolioEnv(gym.Env):
             
             """
             # Get data frame of close prices 
-            # Reset the Index to tic and date
+            # Reset the Index to ticker and date
             df_prices = self.data.copy()
-            df_prices = df_prices.reset_index().set_index(['tic', 'date']).sort_index()
+            df_prices = df_prices.reset_index().set_index(['ticker', 'date']).sort_index()
             tic_list = list(set([i for i,j in df_prices.index]))
 
             # Get all the Close Prices
@@ -214,8 +220,8 @@ class StockPortfolioEnv(gym.Env):
     def reset(self):
         self.asset_memory = [self.initial_amount]
         self.day = 0
-        start_point = (np.random.choice(np.arange(11,self.raw_df.index.max() - 252*5))//11)
-        end_point = start_point + 252*5 -1
+        start_point = (np.random.choice(np.arange(0,self.raw_df.index.max() - conf.EPISODE_LENGTH)))
+        end_point = start_point + conf.EPISODE_LENGTH
         self.df = self.raw_df.loc[start_point:end_point,:].reset_index(drop=True)
         self.df.index = self.df.date.factorize()[0]
         self.data = self.df.loc[self.day,:]
@@ -235,11 +241,11 @@ class StockPortfolioEnv(gym.Env):
     def render(self, mode='human'):
         return self.state
         
-    def softmax_normalization(self, actions):
-        numerator = np.exp(actions)
-        denominator = np.sum(np.exp(actions))
-        softmax_output = numerator/denominator
-        return softmax_output
+    # def softmax_normalization(self, actions):
+    #     numerator = np.exp(actions)
+    #     denominator = np.sum(np.exp(actions))
+    #     softmax_output = numerator/denominator
+    #     return softmax_output
 
     
     def save_asset_memory(self):
@@ -258,32 +264,32 @@ class StockPortfolioEnv(gym.Env):
         
         action_list = self.actions_memory
         df_actions = pd.DataFrame(action_list)
-        df_actions.columns = self.data.tic.values
+        df_actions.columns = self.data.ticker.values
         df_actions.index = df_date.date
         #df_actions = pd.DataFrame({'date':date_list,'actions':action_list})
         return df_actions
     
-    def initial_weights(self, data_frame):
-        # Get data frame of close prices 
-        # Reset the Index to tic and date
-        df_prices = data_frame.copy()
-        df_prices = df_prices.reset_index().set_index(['tic', 'date']).sort_index()
-        tic_list = list(set([i for i,j in df_prices.index]))
+    # def initial_weights(self, data_frame):
+    #     # Get data frame of close prices 
+    #     # Reset the Index to ticker and date
+    #     df_prices = data_frame.copy()
+    #     df_prices = df_prices.reset_index().set_index(['ticker', 'date']).sort_index()
+    #     tic_list = list(set([i for i,j in df_prices.index]))
         
-        # Get all the Close Prices
-        df_close = pd.DataFrame()
-        for ticker in tic_list:
-            series = df_prices.xs(ticker).close
-            df_close[ticker] = series
+    #     # Get all the Close Prices
+    #     df_close = pd.DataFrame()
+    #     for ticker in tic_list:
+    #         series = df_prices.xs(ticker).close
+    #         df_close[ticker] = series
             
-        mu = expected_returns.mean_historical_return(df_close)
-        Sigma = risk_models.sample_cov(df_close)
-        ef = EfficientFrontier(mu,Sigma, weight_bounds=(0.01, 1))
+    #     mu = expected_returns.mean_historical_return(df_close)
+    #     Sigma = risk_models.sample_cov(df_close)
+    #     ef = EfficientFrontier(mu,Sigma, weight_bounds=(0.01, 1))
         
-        raw_weights = ef.max_sharpe()
-        initial_weights = [j for i,j in raw_weights.items()]
+    #     raw_weights = ef.max_sharpe()
+    #     initial_weights = [j for i,j in raw_weights.items()]
         
-        return initial_weights
+    #     return initial_weights
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
