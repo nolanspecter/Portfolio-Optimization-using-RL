@@ -74,7 +74,7 @@ class StockPortfolioEnv(gym.Env):
                 tech_indicator_list,
                 initial_weights,
                 turbulence_threshold=None,
-                lookback=conf.EPISODE_LENGTH,
+                lookback=252,
                 day = 0):
 
         self.day = day
@@ -155,14 +155,13 @@ class StockPortfolioEnv(gym.Env):
             #  norm_actions = (np.array(actions) - np.array(actions).min()) / (np.array(actions) - np.array(actions).min()).sum()
             #else:
             
-      
+    
             #  norm_actions = actions
             if sum(actions) <= 1e-3:
                 weights = [1/len(conf.TICKERS) for a in actions]
             else:
                 weights = [a / sum(actions) for a in actions]
-            if self.day % 100 == 0:
-                print(weights)
+            
             #print("Normalized actions: ", weights)
             self.actions_memory.append(weights)
             last_day_memory = self.data
@@ -217,36 +216,36 @@ class StockPortfolioEnv(gym.Env):
 
         return self.state, self.reward, self.terminal, {}
 
+    
+
     def reset(self):
         self.asset_memory = [self.initial_amount]
         self.day = 0
+
         start_point = (np.random.choice(np.arange(0,self.raw_df.index.max() - conf.EPISODE_LENGTH)))
         end_point = start_point + conf.EPISODE_LENGTH
         self.df = self.raw_df.loc[start_point:end_point,:].reset_index(drop=True)
         self.df.index = self.df.date.factorize()[0]
-        self.data = self.df.loc[self.day,:]
+        
+        self.data = self.df.loc[self.day, :]
         # load states
-        self.covs = self.data['cov_list'].values[0]
-        self.state =  np.append(np.array(self.covs), [self.data[tech].values.tolist() for tech in self.tech_indicator_list ], axis=0)
+        self.covs = self.data["cov_list"].values[0]
+        self.state = np.append(
+            np.array(self.covs),
+            [self.data[tech].values.tolist() for tech in self.tech_indicator_list],
+            axis=0,
+        )
         self.portfolio_value = self.initial_amount
-        #self.cost = 0
-        #self.trades = 0
-        self.terminal = False 
+        # self.cost = 0
+        # self.trades = 0
+        self.terminal = False
         self.portfolio_return_memory = [0]
-              
-        self.actions_memory=[self.initial_weights] 
-        self.date_memory=[self.data.date.unique()[0]] 
+        self.actions_memory = [[1 / self.stock_dim] * self.stock_dim]
+        self.date_memory = [self.data.date.unique()[0]]
         return self.state
     
     def render(self, mode='human'):
         return self.state
-        
-    # def softmax_normalization(self, actions):
-    #     numerator = np.exp(actions)
-    #     denominator = np.sum(np.exp(actions))
-    #     softmax_output = numerator/denominator
-    #     return softmax_output
-
     
     def save_asset_memory(self):
         date_list = self.date_memory
@@ -268,28 +267,6 @@ class StockPortfolioEnv(gym.Env):
         df_actions.index = df_date.date
         #df_actions = pd.DataFrame({'date':date_list,'actions':action_list})
         return df_actions
-    
-    # def initial_weights(self, data_frame):
-    #     # Get data frame of close prices 
-    #     # Reset the Index to ticker and date
-    #     df_prices = data_frame.copy()
-    #     df_prices = df_prices.reset_index().set_index(['ticker', 'date']).sort_index()
-    #     tic_list = list(set([i for i,j in df_prices.index]))
-        
-    #     # Get all the Close Prices
-    #     df_close = pd.DataFrame()
-    #     for ticker in tic_list:
-    #         series = df_prices.xs(ticker).close
-    #         df_close[ticker] = series
-            
-    #     mu = expected_returns.mean_historical_return(df_close)
-    #     Sigma = risk_models.sample_cov(df_close)
-    #     ef = EfficientFrontier(mu,Sigma, weight_bounds=(0.01, 1))
-        
-    #     raw_weights = ef.max_sharpe()
-    #     initial_weights = [j for i,j in raw_weights.items()]
-        
-    #     return initial_weights
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
