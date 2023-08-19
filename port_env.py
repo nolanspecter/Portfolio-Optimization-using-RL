@@ -80,10 +80,13 @@ class StockPortfolioEnv(gym.Env):
         self.day = day
         self.lookback=lookback
         self.raw_df = raw_df
-        start_point = (np.random.choice(np.arange(0,self.raw_df.index.max() - conf.EPISODE_LENGTH)))
-        end_point = start_point + conf.EPISODE_LENGTH
-        self.df = self.raw_df.loc[start_point:end_point,:].reset_index(drop=True)
-        self.df.index = self.df.date.factorize()[0]
+        if self.raw_df.index.max() > conf.EPISODE_LENGTH:
+            start_point = (np.random.choice(np.arange(0,self.raw_df.index.max() - conf.EPISODE_LENGTH)))
+            end_point = start_point + conf.EPISODE_LENGTH
+            self.df = self.raw_df.loc[start_point:end_point,:].reset_index(drop=True)
+            self.df.index = self.df.date.factorize()[0]
+        else:
+            self.df = self.raw_df
         self.stock_dim = stock_dim
         self.share_max = share_max
         self.initial_amount = initial_amount
@@ -118,7 +121,7 @@ class StockPortfolioEnv(gym.Env):
              
     def step(self, actions):
         # print(self.day)
-        self.terminal = (self.day >= 252*5 -1)
+        self.terminal = ((self.day >= conf.EPISODE_LENGTH -1) | (self.day >= len(self.df.index.unique())-1))
         # print(actions)
 
         if self.terminal:
@@ -221,11 +224,14 @@ class StockPortfolioEnv(gym.Env):
     def reset(self):
         self.asset_memory = [self.initial_amount]
         self.day = 0
-
-        start_point = (np.random.choice(np.arange(0,self.raw_df.index.max() - conf.EPISODE_LENGTH)))
-        end_point = start_point + conf.EPISODE_LENGTH
-        self.df = self.raw_df.loc[start_point:end_point,:].reset_index(drop=True)
-        self.df.index = self.df.date.factorize()[0]
+        
+        if self.raw_df.index.max() > conf.EPISODE_LENGTH:
+            start_point = (np.random.choice(np.arange(0,self.raw_df.index.max() - conf.EPISODE_LENGTH)))
+            end_point = start_point + conf.EPISODE_LENGTH
+            self.df = self.raw_df.loc[start_point:end_point,:].reset_index(drop=True)
+            self.df.index = self.df.date.factorize()[0]
+        else:
+            self.df = self.raw_df
         
         self.data = self.df.loc[self.day, :]
         # load states
